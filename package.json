@@ -1,0 +1,24 @@
+{
+  "name": "trendradar",
+  "version": "1.0.0",
+  "description": "Reddit scraper for YouTube video topic research",
+  "main": "src/main.ts",
+  "scripts": {
+    "start": "node src/main.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.39.0",
+    "@types/snoowrap": "^1.16.1",
+    "dotenv": "^16.0.0",
+    "snoowrap": "^1.23.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.0.0"
+  },
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  }
+}

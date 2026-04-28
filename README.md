@@ -1,2 +1,2 @@
 # trendradar
-Find trends
+Find trends easily.

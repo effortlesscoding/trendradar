@@ -1,0 +1,31 @@
+{
+  "manifest_version": 3,
+  "name": "Reddit Research Tool",
+  "version": "1.0.0",
+  "description": "Scrape Reddit for YouTube content ideas in AI/CS space",
+  "permissions": ["tabs", "scripting", "storage"],
+  "host_permissions": [
+    "https://www.reddit.com/*",
+    "https://old.reddit.com/*",
+    "http://localhost:3457/*"
+  ],
+  "background": {
+    "service_worker": "dist/background.js",
+    "type": "module"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://www.reddit.com/*", "https://old.reddit.com/*"],
+      "js": ["dist/content.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}

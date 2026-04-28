@@ -1,0 +1,24 @@
+{
+  "name": "reddit-research-api",
+  "version": "1.0.0",
+  "description": "Reddit research tool API for YouTube content creators",
+  "engines": {
+    "node": ">=24"
+  },
+  "type": "module",
+  "scripts": {
+    "start": "node src/server.ts",
+    "dev": "node -watch src/server.ts"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.40.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^5.0.1"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.17",
+    "@types/express": "^5.0.0",
+    "@types/node": "^22.0.0"
+  }
+}

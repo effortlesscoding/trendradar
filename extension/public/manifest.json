@@ -10,21 +10,16 @@
     "http://localhost:3457/*"
   ],
   "background": {
-    "service_worker": "dist/background.js",
+    "service_worker": "background.js",
     "type": "module"
   },
   "action": {
-    "default_popup": "popup.html",
-    "default_icon": {
-      "16": "icons/icon16.png",
-      "48": "icons/icon48.png",
-      "128": "icons/icon128.png"
-    }
+    "default_popup": "popup.html"
   },
   "content_scripts": [
     {
       "matches": ["https://www.reddit.com/*", "https://old.reddit.com/*"],
-      "js": ["dist/content.js"],
+      "js": ["content.js"],
       "run_at": "document_idle"
     }
   ]

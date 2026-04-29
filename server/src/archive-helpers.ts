@@ -1,6 +1,6 @@
 import { mkdir, writeFile } from "fs/promises";
 import { join } from "path";
-import type { ScoredTopic, LLMVideoIdea } from "./types.ts";
+import type { PostData, ScoredTopic, LLMVideoIdea } from "./types.ts";
 import { config } from "./config.ts";
 
 function getTodayDir(): string {
@@ -23,7 +23,7 @@ function makeMeta(extra: Record<string, unknown> = {}): Record<string, unknown> 
 
 export async function saveSubredditPosts(
   subreddit: string,
-  posts: ScoredTopic[]
+  posts: PostData[]
 ): Promise<void> {
   const dir = getTodayDir();
   await mkdir(dir, { recursive: true });
@@ -31,6 +31,18 @@ export async function saveSubredditPosts(
   const filepath = join(dir, filename);
   const payload = {
     meta: makeMeta({ subreddit, postCount: posts.length }),
+    posts,
+  };
+  await writeFile(filepath, JSON.stringify(payload, null, 2), "utf-8");
+  console.log(`[archive] saved ${filepath}`);
+}
+
+export async function saveAllRawPosts(posts: PostData[]): Promise<void> {
+  const dir = getTodayDir();
+  await mkdir(dir, { recursive: true });
+  const filepath = join(dir, "raw.json");
+  const payload = {
+    meta: makeMeta({ totalPosts: posts.length }),
     posts,
   };
   await writeFile(filepath, JSON.stringify(payload, null, 2), "utf-8");

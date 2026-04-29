@@ -42,7 +42,6 @@ export interface SessionState {
   subreddits: Record<string, SubredditState>;
   startedAt: string | null;
   finishedAt: string | null;
-  analysisTriggered: boolean;
 }
 
 export interface ScrapedPost {

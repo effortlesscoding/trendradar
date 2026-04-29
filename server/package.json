@@ -8,7 +8,9 @@
   "type": "module",
   "scripts": {
     "start": "node src/server.ts",
-    "dev": "node -watch src/server.ts"
+    "dev": "node -watch src/server.ts",
+    "analyze": "node src/scripts/analyze.ts",
+    "analyze:date": "node src/scripts/analyze.ts --date"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.40.0",

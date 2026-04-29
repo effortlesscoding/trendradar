@@ -4,6 +4,7 @@ import {
   resetSession,
   type ScrapedPost,
 } from "./api-client.js";
+import { logger } from "./logger.js";
 
 const BATCH_SIZE = 20;
 const SCROLL_DELAY = 2000;
@@ -36,26 +37,27 @@ async function scrollToLoadPosts(tabId: number, targetCount: number): Promise<vo
 }
 
 async function scrapeTab(tabId: number): Promise<ScrapedPost[]> {
-  try {
-    const results = await chrome.scripting.executeScript({
-      target: { tabId },
-      func: () => {
-        return new Promise<ScrapedPost[]>((resolve) => {
-          chrome.runtime.sendMessage({ type: "SCRAPE_POSTS" }, (response) => {
-            resolve(response?.posts ?? []);
-          });
-        });
-      },
-    });
-    return (results?.[0]?.result as ScrapedPost[]) ?? [];
-  } catch {
-    // Try direct message to content script
-    return new Promise((resolve) => {
+  // The tab is activated before this is called, so the declarative content script
+  // should be injected. Retry a few times to handle any remaining race condition.
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    const result = await new Promise<ScrapedPost[] | null>((resolve) => {
       chrome.tabs.sendMessage(tabId, { type: "SCRAPE_POSTS" }, (response) => {
+        if (chrome.runtime.lastError) {
+          resolve(null);
+          return;
+        }
         resolve(response?.posts ?? []);
       });
     });
+
+    if (result !== null) return result;
+
+    logger.warn(`[bg] content script not ready in tab ${tabId}, retrying (${attempt}/3)`);
+    await sleep(1000);
   }
+
+  logger.error(`[bg] content script never responded in tab ${tabId}`);
+  return [];
 }
 
 async function sendInBatches(
@@ -78,11 +80,10 @@ async function processSub(job: ScrapeJob): Promise<void> {
   const { subreddit } = job;
   const url = `https://www.reddit.com/r/${subreddit}/?sort=hot`;
 
-  console.log(`[bg] opening tab for r/${subreddit}`);
+  logger.log(`[bg] opening tab for r/${subreddit}`);
   const tab = await chrome.tabs.create({ url, active: false });
   const tabId = tab.id!;
 
-  // Wait for page load
   await new Promise<void>((resolve) => {
     const listener = (id: number, info: chrome.tabs.TabChangeInfo) => {
       if (id === tabId && info.status === "complete") {
@@ -92,21 +93,27 @@ async function processSub(job: ScrapeJob): Promise<void> {
     };
     chrome.tabs.onUpdated.addListener(listener);
   });
+  logger.log(`[bg] r/${subreddit} page loaded, waiting for JS render`);
 
-  await sleep(2000); // let JS render
+  await sleep(2000);
 
-  // Scroll to load posts
+  await chrome.tabs.update(tabId, { active: true });
+  logger.log(`[bg] r/${subreddit} tab activated`);
+
+  logger.log(`[bg] r/${subreddit} scrolling to load ~${job.postsTarget} posts`);
   await scrollToLoadPosts(tabId, job.postsTarget);
 
-  // Scrape
+  logger.log(`[bg] r/${subreddit} scraping DOM`);
   const posts = await scrapeTab(tabId);
-  console.log(`[bg] r/${subreddit}: scraped ${posts.length} posts`);
+  logger.info(`[bg] r/${subreddit} scraped ${posts.length} posts`);
 
-  // Close tab
   await chrome.tabs.remove(tabId);
+  logger.log(`[bg] r/${subreddit} tab closed`);
 
-  // Send to API
-  await sendInBatches(subreddit, posts.slice(0, job.postsTarget));
+  const toSend = posts.slice(0, job.postsTarget);
+  logger.log(`[bg] r/${subreddit} sending ${toSend.length} posts to API in batches of ${BATCH_SIZE}`);
+  await sendInBatches(subreddit, toSend);
+  logger.info(`[bg] r/${subreddit} done`);
 
   await sleep(TAB_DELAY);
 }
@@ -115,33 +122,40 @@ async function runScrape(subreddits: string[], postsPerSub: number): Promise<voi
   isRunning = true;
 
   try {
+    logger.info("[bg] scrape started", `subreddits: ${subreddits.join(", ")}`, `postsPerSub: ${postsPerSub}`);
     await resetSession();
+    logger.log("[bg] session reset");
     await startSession(subreddits);
+    logger.log("[bg] session started on server");
 
     for (const subreddit of subreddits) {
-      if (!isRunning) break;
+      if (!isRunning) {
+        logger.warn("[bg] scrape stopped early by user");
+        break;
+      }
       try {
         await processSub({ subreddit, postsTarget: postsPerSub });
       } catch (err) {
-        console.error(`[bg] error scraping r/${subreddit}:`, err);
-        // Still send done signal
+        logger.error(`[bg] error scraping r/${subreddit}`, String(err));
         await sendPostBatch(subreddit, [], true).catch(() => {});
       }
     }
   } finally {
     isRunning = false;
-    console.log("[bg] scrape complete");
+    logger.info("[bg] scrape complete");
   }
 }
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (message.type === "START_SCRAPE") {
     if (isRunning) {
+      logger.warn("[bg] START_SCRAPE received but already running");
       sendResponse({ ok: false, error: "Already running" });
       return;
     }
+    logger.log("[bg] START_SCRAPE received");
     runScrape(message.subreddits, message.postsPerSub ?? POSTS_PER_SUB).catch(
-      console.error
+      (err) => logger.error("[bg] runScrape unhandled error", String(err))
     );
     sendResponse({ ok: true });
   }

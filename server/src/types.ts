@@ -58,3 +58,14 @@ export interface PostBatch {
   posts: ScrapedPost[];
   done: boolean;
 }
+
+export interface Comment {
+  upvotes: number;
+  content: string;
+}
+
+export interface CommentBatch {
+  subreddit: string;
+  postId: string;
+  comments: Comment[];
+}

@@ -1,8 +1,8 @@
 import { Router } from "express";
 import type { Request, Response } from "express";
-import type { PostBatch, PostData } from "../types.ts";
+import type { PostBatch, PostData, CommentBatch } from "../types.ts";
 import { setSubredditStatus, isAllDone, getSession } from "../session.ts";
-import { saveSubredditPosts, saveAllRawPosts } from "../archive-helpers.ts";
+import { saveSubredditPosts, saveAllRawPosts, savePostComments } from "../archive-helpers.ts";
 import { rawPosts } from "../store.ts";
 
 const router = Router();
@@ -63,6 +63,18 @@ router.post("/posts", async (req: Request, res: Response) => {
     received: posts.length,
     subredditTotal: rawPosts.get(subreddit)?.length ?? 0,
   });
+});
+
+router.post("/posts/comments", async (req: Request, res: Response) => {
+  const { subreddit, postId, comments } = req.body as CommentBatch;
+
+  if (!subreddit || !postId || !Array.isArray(comments)) {
+    res.status(400).json({ error: "subreddit, postId, and comments array are required" });
+    return;
+  }
+
+  await savePostComments(subreddit, postId, comments);
+  res.json({ saved: comments.length });
 });
 
 export default router;

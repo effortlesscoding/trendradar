@@ -1,8 +1,10 @@
 import {
   startSession,
   sendPostBatch,
+  sendPostComments,
   resetSession,
   type ScrapedPost,
+  type Comment,
 } from "./api-client.js";
 import { logger } from "./logger.js";
 
@@ -60,6 +62,62 @@ async function scrapeTab(tabId: number): Promise<ScrapedPost[]> {
   return [];
 }
 
+async function scrapeTabComments(tabId: number): Promise<Comment[]> {
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    const result = await new Promise<Comment[] | null>((resolve) => {
+      chrome.tabs.sendMessage(tabId, { type: "SCRAPE_COMMENTS" }, (response) => {
+        if (chrome.runtime.lastError) {
+          resolve(null);
+          return;
+        }
+        resolve(response?.comments ?? []);
+      });
+    });
+
+    if (result !== null) return result;
+
+    logger.warn(`[bg] content script not ready in tab ${tabId}, retrying (${attempt}/3)`);
+    await sleep(1000);
+  }
+
+  logger.error(`[bg] content script never responded in tab ${tabId}`);
+  return [];
+}
+
+async function scrapePostComments(subreddit: string, post: ScrapedPost): Promise<void> {
+  logger.log(`[bg] opening comment tab for post ${post.id}`);
+  const tab = await chrome.tabs.create({ url: post.url, active: false });
+  const tabId = tab.id!;
+
+  await new Promise<void>((resolve) => {
+    const listener = (id: number, info: chrome.tabs.TabChangeInfo) => {
+      if (id === tabId && info.status === "complete") {
+        chrome.tabs.onUpdated.removeListener(listener);
+        resolve();
+      }
+    };
+    chrome.tabs.onUpdated.addListener(listener);
+  });
+
+  await sleep(2000);
+  await chrome.tabs.update(tabId, { active: true });
+  await sleep(1000);
+
+  const comments = await scrapeTabComments(tabId);
+  await chrome.tabs.remove(tabId);
+
+  const top40 = comments
+    .sort((a, b) => b.upvotes - a.upvotes)
+    .slice(0, 40);
+
+  logger.info(`[bg] post ${post.id} got ${top40.length} comments`);
+  if (top40.length > 0) {
+    await sendPostComments(subreddit, post.id, top40);
+  }
+
+  await sleep(TAB_DELAY);
+}
+
 async function sendInBatches(
   subreddit: string,
   posts: ScrapedPost[]
@@ -113,6 +171,16 @@ async function processSub(job: ScrapeJob): Promise<void> {
   const toSend = posts.slice(0, job.postsTarget);
   logger.log(`[bg] r/${subreddit} sending ${toSend.length} posts to API in batches of ${BATCH_SIZE}`);
   await sendInBatches(subreddit, toSend);
+
+  logger.log(`[bg] r/${subreddit} scraping comments for ${toSend.length} posts`);
+  for (const post of toSend) {
+    if (!isRunning) break;
+    try {
+      await scrapePostComments(subreddit, post);
+    } catch (err) {
+      logger.error(`[bg] error scraping comments for post ${post.id}`, String(err));
+    }
+  }
   logger.info(`[bg] r/${subreddit} done`);
 
   await sleep(TAB_DELAY);

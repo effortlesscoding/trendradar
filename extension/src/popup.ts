@@ -7,7 +7,7 @@ const DEFAULT_SUBREDDITS = [
   ...config.defaultSubreddits.itcareers,
   ...config.defaultSubreddits.javascript,
   ...config.defaultSubreddits.ai
-];
+].join('\n');
 
 const DEFAULT_POSTS_PER_SUB = config.postsPerSubreddit;
 

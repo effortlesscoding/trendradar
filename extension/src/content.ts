@@ -99,6 +99,69 @@ export function scrapePosts(): ScrapedPost[] {
   return isOldReddit() ? scrapeOldReddit() : scrapeNewReddit();
 }
 
+interface ScrapedComment {
+  upvotes: number;
+  content: string;
+  mainContent: boolean;
+}
+
+function scrapeNewRedditPost(): ScrapedComment | null {
+  const post = document.querySelector("shreddit-post");
+  if (!post) return null;
+  const upvotes = parseInt(post.getAttribute("score") || "0", 10) || 0;
+  const textEl = post.querySelector("[slot='text-body'], .RichTextJSON-root, .md");
+  const content = textEl?.textContent?.trim() || "";
+  return content ? { upvotes, content, mainContent: true } : null;
+}
+
+function scrapeOldRedditPost(): ScrapedComment | null {
+  logger.log("[content] scraping old Reddit post content");
+  const post = document.querySelector(".thing.link");
+  if (!post) return null;
+  const scoreEl = post.querySelector(".score.unvoted, .score.likes, .score.dislikes");
+  const upvotes = parseInt(scoreEl?.getAttribute("title") || "0", 10) || 0;
+  const textEl = post.querySelector(".usertext-body .md");
+  const content = textEl?.textContent?.trim() || "";
+  return content ? { upvotes, content, mainContent: true } : null;
+}
+
+function scrapeNewRedditComments(): ScrapedComment[] {
+  try {
+    const comments: ScrapedComment[] = [];
+    logger.log("[content] scraping new Reddit post content");
+    const post = scrapeNewRedditPost();
+    if (post) comments.push(post);
+    document.querySelectorAll("shreddit-comment").forEach((el) => {
+      const upvotes = parseInt(el.getAttribute("score") || "0", 10) || 0;
+      const textEl = el.querySelector("[slot='text-body'], .RichTextJSON-root, .md");
+      const content = textEl?.textContent?.trim() || "";
+      if (content) comments.push({ upvotes, content, mainContent: false });
+    });
+    return comments;
+  } catch (err) {
+    logger.error("[content] error scraping new Reddit comments", err);
+    return [];
+  }
+}
+
+function scrapeOldRedditComments(): ScrapedComment[] {
+  const comments: ScrapedComment[] = [];
+  const post = scrapeOldRedditPost();
+  if (post) comments.push(post);
+  document.querySelectorAll(".comment").forEach((el) => {
+    const scoreEl = el.querySelector(".score.unvoted, .score.likes, .score.dislikes");
+    const upvotes = parseInt(scoreEl?.getAttribute("title") || "0", 10) || 0;
+    const textEl = el.querySelector(".usertext-body .md");
+    const content = textEl?.textContent?.trim() || "";
+    if (content) comments.push({ upvotes, content, mainContent: false });
+  });
+  return comments;
+}
+
+function scrapeComments(): ScrapedComment[] {
+  return isOldReddit() ? scrapeOldRedditComments() : scrapeNewRedditComments();
+}
+
 logger.log("[content] content script loaded, ready to scrape posts");
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
@@ -107,6 +170,11 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     logger.log("[content] scraping posts");
     const posts = scrapePosts();
     sendResponse({ posts });
+  }
+  if (message.type === "SCRAPE_COMMENTS") {
+    logger.log("[content] scraping comments");
+    const comments = scrapeComments();
+    sendResponse({ comments });
   }
   return true;
 });

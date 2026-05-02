@@ -1,17 +1,15 @@
 import { getSessionStatus, resetSession } from "./api-client.js";
+import { config } from "./config.js";
 import { logger } from "./logger.js";
 
 const DEFAULT_SUBREDDITS = [
-  "MachineLearning",
-  "learnmachinelearning",
-  "artificial",
-  "deeplearning",
-  "MLQuestions",
-  "compsci",
-  "learnprogramming",
-].join("\n");
+  ...config.defaultSubreddits.generic,
+  ...config.defaultSubreddits.itcareers,
+  ...config.defaultSubreddits.javascript,
+  ...config.defaultSubreddits.ai
+];
 
-const DEFAULT_POSTS_PER_SUB = 50;
+const DEFAULT_POSTS_PER_SUB = config.postsPerSubreddit;
 
 // Elements
 const subredditTextarea = document.getElementById(

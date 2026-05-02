@@ -8,9 +8,10 @@
   "type": "module",
   "scripts": {
     "start": "node src/server.ts",
-    "dev": "node -watch src/server.ts",
+    "dev": "node --watch src/server.ts",
     "analyze": "node src/scripts/analyze.ts",
-    "analyze:date": "node src/scripts/analyze.ts --date"
+    "analyze:date": "node src/scripts/analyze.ts --date",
+    "analyze:llm": "node src/scripts/analyze-llm.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.40.0",
@@ -21,6 +22,6 @@
   "devDependencies": {
     "@types/cors": "^2.8.17",
     "@types/express": "^5.0.0",
-    "@types/node": "^22.0.0"
+    "@types/node": "^22.19.17"
   }
 }

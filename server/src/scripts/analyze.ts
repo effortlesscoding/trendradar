@@ -4,8 +4,9 @@ import { readFile, readdir, mkdir, writeFile } from "fs/promises";
 import { join, resolve } from "path";
 import { scoreText } from "../utils.ts";
 import { config } from "../config.ts";
-import { analyzeWithClaude } from "../llm.ts";
 import type { PostData, ScoredTopic } from "../types.ts";
+import { runClaude } from "../utils/llm/claude.ts";
+import { makeYoutubeAnalyzePrompt } from "../prompts/youtube.ts";
 
 const dateArg = process.argv.find((_, i) => process.argv[i - 1] === "--date");
 const date = dateArg ?? new Date().toISOString().slice(0, 10);
@@ -58,8 +59,9 @@ await save("scored.json", {
   meta: { timestamp: new Date().toISOString(), version: config.version, totalPosts: scored.length },
   posts: scored,
 });
+const prompt = makeYoutubeAnalyzePrompt(scored);
 
-const ideas = await analyzeWithClaude(scored);
+const ideas = await runClaude(prompt)
 
 await save("llm_ideas.json", {
   meta: { timestamp: new Date().toISOString(), version: config.version, ideaCount: ideas.length },

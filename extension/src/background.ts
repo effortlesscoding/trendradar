@@ -21,7 +21,8 @@ interface ScrapeJob {
 let isRunning = false;
 
 async function sleep(ms: number): Promise<void> {
-  return new Promise((r) => setTimeout(r, ms));
+  const jitter = Math.floor(Math.random() * 301) - 100;
+  return new Promise((r) => setTimeout(r, Math.max(0, ms + jitter)));
 }
 
 async function scrollToLoadPosts(tabId: number, targetCount: number): Promise<void> {
@@ -86,36 +87,40 @@ async function scrapeTabComments(tabId: number): Promise<Comment[]> {
 
 async function scrapePostComments(subreddit: string, post: ScrapedPost): Promise<void> {
   logger.log(`[bg] opening comment tab for post ${post.id}`);
-  const tab = await chrome.tabs.create({ url: post.url, active: false });
-  const tabId = tab.id!;
+  try {
+    const tab = await chrome.tabs.create({ url: post.url, active: false });
+    const tabId = tab.id!;
 
-  await new Promise<void>((resolve) => {
-    const listener = (id: number, info: chrome.tabs.TabChangeInfo) => {
-      if (id === tabId && info.status === "complete") {
-        chrome.tabs.onUpdated.removeListener(listener);
-        resolve();
-      }
-    };
-    chrome.tabs.onUpdated.addListener(listener);
-  });
+    await new Promise<void>((resolve) => {
+      const listener = (id: number, info: chrome.tabs.TabChangeInfo) => {
+        if (id === tabId && info.status === "complete") {
+          chrome.tabs.onUpdated.removeListener(listener);
+          resolve();
+        }
+      };
+      chrome.tabs.onUpdated.addListener(listener);
+    });
 
-  await sleep(2000);
-  await chrome.tabs.update(tabId, { active: true });
-  await sleep(1000);
+    await sleep(2000);
+    await chrome.tabs.update(tabId, { active: true });
+    await sleep(1000);
 
-  const comments = await scrapeTabComments(tabId);
-  await chrome.tabs.remove(tabId);
+    const comments = await scrapeTabComments(tabId);
+    await chrome.tabs.remove(tabId);
 
-  const top40 = comments
-    .sort((a, b) => b.upvotes - a.upvotes)
-    .slice(0, 40);
+    const top40 = comments
+      .sort((a, b) => b.upvotes - a.upvotes)
+      .slice(0, 40);
 
-  logger.info(`[bg] post ${post.id} got ${top40.length} comments`);
-  if (top40.length > 0) {
-    await sendPostComments(subreddit, post.id, top40);
+    logger.info(`[bg] post ${post.id} got ${top40.length} comments`);
+    if (top40.length > 0) {
+      await sendPostComments(subreddit, post.id, top40);
+    }
+
+    await sleep(TAB_DELAY);
+  } catch (error) {
+    logger.error(`[bg] error scraping comments for post ${post.id}`, String(error));
   }
-
-  await sleep(TAB_DELAY);
 }
 
 async function sendInBatches(

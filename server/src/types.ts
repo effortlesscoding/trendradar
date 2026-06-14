@@ -62,6 +62,7 @@ export interface PostBatch {
 export interface Comment {
   upvotes: number;
   content: string;
+  mainPost: boolean;
 }
 
 export interface CommentBatch {

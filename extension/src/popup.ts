@@ -1,16 +1,15 @@
 import { getSessionStatus, resetSession } from "./api-client.js";
+import { config } from "./config.js";
+import { logger } from "./logger.js";
 
 const DEFAULT_SUBREDDITS = [
-  "MachineLearning",
-  "learnmachinelearning",
-  "artificial",
-  "deeplearning",
-  "MLQuestions",
-  "compsci",
-  "learnprogramming",
-].join("\n");
+  ...config.defaultSubreddits.generic,
+  ...config.defaultSubreddits.itcareers,
+  ...config.defaultSubreddits.javascript,
+  ...config.defaultSubreddits.ai
+].join('\n');
 
-const DEFAULT_POSTS_PER_SUB = 50;
+const DEFAULT_POSTS_PER_SUB = config.postsPerSubreddit;
 
 // Elements
 const subredditTextarea = document.getElementById(
@@ -119,22 +118,25 @@ startBtn.addEventListener("click", async () => {
   }
 
   const postsPerSub = parseInt(postsPerSubInput.value, 10) || DEFAULT_POSTS_PER_SUB;
+  logger.info("[popup] start clicked", `subreddits: ${subs.join(", ")}`, `postsPerSub: ${postsPerSub}`);
 
   setRunning(true);
   statusContainer.innerHTML = "";
   globalStatus.textContent = "Starting...";
   globalStatus.className = "global-status";
 
-  // Tell background to start
+  logger.log("[popup] sending START_SCRAPE to background");
   chrome.runtime.sendMessage(
     { type: "START_SCRAPE", subreddits: subs, postsPerSub },
     (response) => {
       if (!response?.ok) {
+        logger.error("[popup] background rejected START_SCRAPE", response?.error ?? "unknown error");
         apiError.style.display = "block";
         apiError.textContent = response?.error || "Failed to start";
         setRunning(false);
         return;
       }
+      logger.log("[popup] background acknowledged, polling started");
       startPolling();
     }
   );

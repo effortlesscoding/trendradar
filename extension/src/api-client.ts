@@ -71,3 +71,26 @@ export async function sendPostBatch(
   if (!res.ok) throw new Error(`sendPostBatch failed: ${res.status}`);
   return res.json();
 }
+
+export interface Comment {
+  upvotes: number;
+  content: string;
+}
+
+export interface PostCommentsResponse {
+  saved: number;
+}
+
+export async function sendPostComments(
+  subreddit: string,
+  postId: string,
+  comments: Comment[]
+): Promise<PostCommentsResponse> {
+  const res = await fetch(`${API_BASE}/posts/comments`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ subreddit, postId, comments }),
+  });
+  if (!res.ok) throw new Error(`sendPostComments failed: ${res.status}`);
+  return res.json();
+}

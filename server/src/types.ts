@@ -42,7 +42,6 @@ export interface SessionState {
   subreddits: Record<string, SubredditState>;
   startedAt: string | null;
   finishedAt: string | null;
-  analysisTriggered: boolean;
 }
 
 export interface ScrapedPost {
@@ -58,4 +57,16 @@ export interface PostBatch {
   subreddit: string;
   posts: ScrapedPost[];
   done: boolean;
+}
+
+export interface Comment {
+  upvotes: number;
+  content: string;
+  mainPost: boolean;
+}
+
+export interface CommentBatch {
+  subreddit: string;
+  postId: string;
+  comments: Comment[];
 }

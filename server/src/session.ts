@@ -4,7 +4,6 @@ let state: SessionState = {
   subreddits: {},
   startedAt: null,
   finishedAt: null,
-  analysisTriggered: false,
 };
 
 export function initSession(subreddits: string[]): void {
@@ -17,7 +16,6 @@ export function initSession(subreddits: string[]): void {
     ),
     startedAt: new Date().toISOString(),
     finishedAt: null,
-    analysisTriggered: false,
   };
 }
 
@@ -58,15 +56,10 @@ export function isAllDone(): boolean {
   );
 }
 
-export function markAnalysisTriggered(): void {
-  state.analysisTriggered = true;
-}
-
 export function resetSession(): void {
   state = {
     subreddits: {},
     startedAt: null,
     finishedAt: null,
-    analysisTriggered: false,
   };
 }
